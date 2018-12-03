@@ -1,5 +1,6 @@
 package io.seventytwo.camel.demo.route;
 
+import io.seventytwo.camel.demo.processor.IdFromBodyToHeaderProcessor;
 import org.apache.camel.builder.RouteBuilder;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -7,6 +8,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class RestToSqlRouteBuilder extends RouteBuilder {
 
+    private final IdFromBodyToHeaderProcessor idFromBodyToHeaderProcessor;
+
+    public RestToSqlRouteBuilder(IdFromBodyToHeaderProcessor idFromBodyToHeaderProcessor) {
+        this.idFromBodyToHeaderProcessor = idFromBodyToHeaderProcessor;
+    }
 
     @Override
     public void configure() throws Exception {
@@ -24,9 +30,14 @@ public class RestToSqlRouteBuilder extends RouteBuilder {
         from("direct:sql")
                 .routeId("RestToSqlRoute")
                 .to("sql://select id, name, description from todo")
-                .log("${body}")
-                .setBody(constant(null))
-                .to("https://postman-echo.com/get?bridgeEndpoint=true")
-                .transform().simple("${body}");
+                .log("Full Body: ${body}")
+                .split(body()).parallelProcessing()
+                    .log("After Split: ${body}")
+                    .process(idFromBodyToHeaderProcessor)
+                    .to("https://postman-echo.com/get?bridgeEndpoint=true&id=${header.ID}")
+                    .log("After echo: ${body}")
+                .end()
+                .setBody(simple("Done"))
+                .end();
     }
 }
