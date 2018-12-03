@@ -16,11 +16,17 @@ public class RestToSqlRouteBuilder extends RouteBuilder {
         rest("/sql")
                 .get()
                 .produces(MediaType.TEXT_PLAIN_VALUE)
-                .to("direct:hello");
+                .to("direct:sql");
+
+        from("quartz2://sq/polling-timer?cron=0/30+*+*+*+*+?")
+                .to("direct:sql");
 
         from("direct:sql")
                 .routeId("RestToSqlRoute")
-                .log("${headers}")
-                .transform().simple("Hello ${headers.name}");
+                .to("sql://select id, name, description from todo")
+                .log("${body}")
+                .setBody(constant(null))
+                .to("https://postman-echo.com/get?bridgeEndpoint=true")
+                .transform().simple("${body}");
     }
 }
